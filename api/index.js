@@ -43,28 +43,29 @@ app.post('/api/buscarExperimentos', async (req, res) => {
   }
 });
 
-// --- 2. ENDPOINT PARA GUARDAR UN NUEVO EXPERIMENTO ---
 app.post('/api/guardarExperimento', async (req, res) => {
   try {
-    const {
-      empresa, id_experimento, fecha_inicio, responsable, nombre_experimento,
-      contexto_observaciones, hipotesis, metrica_principal,
-      metricas_secundarias, acciones_tareas, recursos_necesarios, duracion_estimada,
-    } = req.body;
+    const data = req.body;
 
-    if (!empresa || !nombre_experimento || !hipotesis) {
+    // Validación de los campos más críticos
+    if (!data.empresa || !data.nombre_experimento || !data.hipotesis) {
       return res.status(400).json({ error: 'Faltan campos clave como empresa, nombre o hipótesis.' });
     }
 
-    // LÓGICA DE RESPALDO: Si el GPT no envía un id_experimento, generamos uno.
-    const idExperimentoFinal = id_experimento || `MEXP-${Date.now()}`;
-
+    // LÓGICA DE RESPALDO MEJORADA: Asignamos valores por defecto a CUALQUIER campo que pueda faltar.
     const nuevoExperimento = {
-      empresa,
-      id_experimento: idExperimentoFinal, // Usamos el ID final
-      fecha_inicio, responsable, nombre_experimento,
-      contexto_observaciones, hipotesis, metrica_principal,
-      metricas_secundarias, acciones_tareas, recursos_necesarios, duracion_estimada,
+      empresa: data.empresa,
+      id_experimento: data.id_experimento || `MEXP-${Date.now()}`,
+      fecha_inicio: data.fecha_inicio || new Date().toISOString().split('T')[0], // Fecha de hoy si no se especifica
+      responsable: data.responsable || 'Equipo a cargo', // Valor por defecto
+      nombre_experimento: data.nombre_experimento,
+      contexto_observaciones: data.contexto_observaciones || 'No especificado.', // Valor por defecto
+      hipotesis: data.hipotesis,
+      metrica_principal: data.metrica_principal,
+      metricas_secundarias: data.metricas_secundarias || 'No especificadas.', // Valor por defecto
+      acciones_tareas: data.acciones_tareas || 'No especificadas.', // Valor por defecto
+      recursos_necesarios: data.recursos_necesarios || 'No especificados.', // Valor por defecto
+      duracion_estimada: data.duracion_estimada || 'No especificada.', // Valor por defecto
       fecha_creacion: new Date(),
       estado: 'Definido'
     };
@@ -75,7 +76,6 @@ app.post('/api/guardarExperimento', async (req, res) => {
 
   } catch (error) {
     console.error("Error al guardar experimento: ", error);
-    // Añadimos más detalle al error para facilitar la depuración
     res.status(500).json({ 
         error: 'Error interno del servidor al guardar el experimento.',
         detalle: error.message 

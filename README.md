@@ -1,5 +1,8 @@
 # 📦 GPT Proxy para Vercel
 
+
+
+
 ## 🚀 Qué hace
 - Este proxy recibe `{ pregunta, respuesta }` de OpenAI Actions.
 - Reenvía el JSON a tu Apps Script.

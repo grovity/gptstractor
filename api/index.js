@@ -132,27 +132,29 @@ app.post('/api/guardarTurno', async (req, res) => {
 
 
 
+// --- ENDPOINT PARA GUARDAR UN HISTORIAL COMPLETO DE CONVERSACIÓN (ESTRUCTURADO) ---
 app.post('/api/guardarHistorial', async (req, res) => {
   try {
-    const { titulo, historialCompleto } = req.body;
+    // Recibimos el nuevo campo "historialEstructurado" que es un array
+    const { titulo, historialEstructurado } = req.body;
 
-    if (!titulo || !historialCompleto) {
+    if (!titulo || !historialEstructurado) {
       return res.status(400).json({ error: 'Falta el título o el contenido del historial.' });
     }
 
     const nuevoHistorial = {
       titulo,
-      historialCompleto,
+      // Guardamos el array directamente en Firestore
+      conversacion: historialEstructurado,
       fechaGuardado: new Date()
     };
     
-    // Guardamos en una nueva colección llamada "historiales"
     const docRef = await db.collection('historiales').add(nuevoHistorial);
-    console.log("Historial completo guardado con ID: ", docRef.id);
+    console.log("Historial estructurado guardado con ID: ", docRef.id);
     res.status(200).json({ status: 'ok', message: `Historial guardado con el título: "${titulo}"` });
 
   } catch (error) {
-    console.error("Error al guardar el historial: ", error);
+    console.error("Error al guardar el historial estructurado: ", error);
     res.status(500).json({ error: 'Error interno del servidor al guardar el historial.' });
   }
 });

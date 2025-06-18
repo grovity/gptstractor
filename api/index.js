@@ -129,3 +129,30 @@ app.post('/api/guardarTurno', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor.' });
   }
 });
+
+
+
+app.post('/api/guardarHistorial', async (req, res) => {
+  try {
+    const { titulo, historialCompleto } = req.body;
+
+    if (!titulo || !historialCompleto) {
+      return res.status(400).json({ error: 'Falta el título o el contenido del historial.' });
+    }
+
+    const nuevoHistorial = {
+      titulo,
+      historialCompleto,
+      fechaGuardado: new Date()
+    };
+    
+    // Guardamos en una nueva colección llamada "historiales"
+    const docRef = await db.collection('historiales').add(nuevoHistorial);
+    console.log("Historial completo guardado con ID: ", docRef.id);
+    res.status(200).json({ status: 'ok', message: `Historial guardado con el título: "${titulo}"` });
+
+  } catch (error) {
+    console.error("Error al guardar el historial: ", error);
+    res.status(500).json({ error: 'Error interno del servidor al guardar el historial.' });
+  }
+});

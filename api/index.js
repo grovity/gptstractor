@@ -14,55 +14,40 @@ app.get('/api', (req, res) => {
 });
 
 
-// --- ENDPOINT PARA GUARDAR UN NUEVO EXPERIMENTO ---
-app.post('/api/guardarExperimento', async (req, res) => {
+// --- ENDPOINT PARA GUARDAR LOS RESULTADOS DE UN EXPERIMENTO ---
+app.post('/api/guardarResultado', async (req, res) => {
   try {
+    // Recibimos los nuevos campos del body
     const {
-      id_experimento,
-      fecha_inicio,
-      responsable,
-      nombre_experimento,
-      contexto_observaciones,
-      hipotesis,
-      metrica_principal,
-      metricas_secundarias,
-      acciones_tareas,
-      recursos_necesarios,
-      duracion_estimada,
+      idExperimento,
+      resultado_obtenido,
+      aprendizajes,
+      documentacion
     } = req.body;
 
-    // Validación básica
-    if (!nombre_experimento || !hipotesis || !metrica_principal) {
-      return res.status(400).json({ error: 'Faltan campos clave del experimento.' });
+    if (!idExperimento || !resultado_obtenido || !aprendizajes) {
+      return res.status(400).json({ error: 'Falta el ID, el resultado o los aprendizajes.' });
     }
 
-    const nuevoExperimento = {
-      id_experimento,
-      fecha_inicio,
-      responsable,
-      nombre_experimento,
-      contexto_observaciones,
-      hipotesis,
-      metrica_principal,
-      metricas_secundarias,
-      acciones_tareas,
-      recursos_necesarios,
-      duracion_estimada,
-      fecha_creacion: new Date(), // Añadimos fecha de registro
-      estado: 'Definido' // Estado inicial
-    };
+    const docRef = db.collection('experimentos').doc(idExperimento);
 
-    const docRef = await db.collection('experimentos').add(nuevoExperimento);
-
-    console.log("Experimento guardado con ID: ", docRef.id);
-    res.status(200).json({ status: 'ok', message: 'Experimento guardado exitosamente', id: docRef.id });
+    // Actualizamos el documento original con los nuevos campos
+    await docRef.update({
+      resultado_obtenido,
+      aprendizajes,
+      documentacion: documentacion || 'N/A', // Si no viene, guarda N/A
+      fecha_actualizacion: new Date(),
+      estado: 'Finalizado'
+    });
+    
+    console.log("Resultados actualizados para el experimento: ", idExperimento);
+    res.status(200).json({ status: 'ok', message: 'Resultados actualizados correctamente' });
 
   } catch (error) {
-    console.error("Error al guardar experimento: ", error);
-    res.status(500).json({ error: 'Error interno del servidor al guardar el experimento.' });
+    console.error("Error al actualizar resultados: ", error);
+    res.status(500).json({ error: 'Error interno del servidor al actualizar resultados.' });
   }
 });
-
 
 // --- ENDPOINT PARA GUARDAR LOS RESULTADOS DE UN EXPERIMENTO ---
 app.post('/api/guardarResultado', async (req, res) => {

@@ -4,38 +4,90 @@ import { db } from '../firebaseConfig.js'; // Importamos la conexión a la BD
 
 const app = express();
 
-// Middlewares
-app.use(cors()); // Permite peticiones desde otros orígenes (como la interfaz de ChatGPT)
-app.use(express.json()); // Permite al servidor entender JSON
+// Middlewares para permitir peticiones externas y entender JSON
+app.use(cors());
+app.use(express.json());
 
-// Ruta de prueba para saber si el servidor funciona
-app.get('/api', (req, res) => {
-  res.status(200).send('API del Consultor Empresarial funcionando correctamente.');
+// --- 1. ENDPOINT PARA BUSCAR EXPERIMENTOS POR NOMBRE DE EMPRESA ---
+app.post('/api/buscarExperimentos', async (req, res) => {
+  try {
+    const { nombreEmpresa } = req.body;
+
+    if (!nombreEmpresa) {
+      return res.status(400).json({ error: 'El nombre de la empresa es requerido.' });
+    }
+    
+    const experimentosRef = db.collection('experimentos');
+    const snapshot = await experimentosRef.where('empresa', '==', nombreEmpresa).get();
+
+    if (snapshot.empty) {
+      return res.status(200).json({ experimentos: [] });
+    }
+
+    const listaExperimentos = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      listaExperimentos.push({
+        id: doc.id,
+        nombre_experimento: data.nombre_experimento,
+        hipotesis: data.hipotesis,
+        aprendizajes_conclusiones: data.aprendizajes_conclusiones || 'N/A'
+      });
+    });
+
+    res.status(200).json({ experimentos: listaExperimentos });
+
+  } catch (error) {
+    console.error("Error al buscar experimentos: ", error);
+    res.status(500).json({ error: 'Error interno del servidor al buscar.' });
+  }
 });
 
+// --- 2. ENDPOINT PARA GUARDAR UN NUEVO EXPERIMENTO ---
+app.post('/api/guardarExperimento', async (req, res) => {
+  try {
+    const {
+      id_experimento, fecha_inicio, responsable, nombre_experimento,
+      contexto_observaciones, hipotesis, metrica_principal,
+      metricas_secundarias, acciones_tareas, recursos_necesarios, duracion_estimada,
+    } = req.body;
 
-// --- ENDPOINT PARA GUARDAR LOS RESULTADOS DE UN EXPERIMENTO ---
+    if (!nombre_experimento || !hipotesis || !metrica_principal) {
+      return res.status(400).json({ error: 'Faltan campos clave del experimento.' });
+    }
+
+    const nuevoExperimento = {
+      id_experimento, fecha_inicio, responsable, nombre_experimento,
+      contexto_observaciones, hipotesis, metrica_principal,
+      metricas_secundarias, acciones_tareas, recursos_necesarios, duracion_estimada,
+      fecha_creacion: new Date(),
+      estado: 'Definido'
+    };
+
+    const docRef = await db.collection('experimentos').add(nuevoExperimento);
+    console.log("Experimento guardado con ID: ", docRef.id);
+    res.status(200).json({ status: 'ok', message: 'Experimento guardado exitosamente', id: docRef.id });
+
+  } catch (error) {
+    console.error("Error al guardar experimento: ", error);
+    res.status(500).json({ error: 'Error interno del servidor al guardar el experimento.' });
+  }
+});
+
+// --- 3. ENDPOINT PARA GUARDAR LOS RESULTADOS DE UN EXPERIMENTO ---
 app.post('/api/guardarResultado', async (req, res) => {
   try {
-    // Recibimos los nuevos campos del body
-    const {
-      idExperimento,
-      resultado_obtenido,
-      aprendizajes,
-      documentacion
-    } = req.body;
+    const { idExperimento, resultado_obtenido, aprendizajes, documentacion } = req.body;
 
     if (!idExperimento || !resultado_obtenido || !aprendizajes) {
       return res.status(400).json({ error: 'Falta el ID, el resultado o los aprendizajes.' });
     }
 
     const docRef = db.collection('experimentos').doc(idExperimento);
-
-    // Actualizamos el documento original con los nuevos campos
     await docRef.update({
       resultado_obtenido,
       aprendizajes,
-      documentacion: documentacion || 'N/A', // Si no viene, guarda N/A
+      documentacion: documentacion || 'N/A',
       fecha_actualizacion: new Date(),
       estado: 'Finalizado'
     });
@@ -49,78 +101,35 @@ app.post('/api/guardarResultado', async (req, res) => {
   }
 });
 
-// --- ENDPOINT PARA GUARDAR LOS RESULTADOS DE UN EXPERIMENTO ---
-app.post('/api/guardarResultado', async (req, res) => {
-  try {
-    const {
-      idExperimento, // Este es el ID del DOCUMENTO en Firebase
-      resultados_cuantitativos,
-      resultados_cualitativos,
-      aprendizajes_conclusiones,
-      decision_proximos_pasos
-    } = req.body;
-
-    if (!idExperimento) {
-      return res.status(400).json({ error: 'Falta el ID del experimento a actualizar.' });
-    }
-
-    const docRef = db.collection('experimentos').doc(idExperimento);
-
-    await docRef.update({
-      resultados_cuantitativos,
-      resultados_cualitativos,
-      aprendizajes_conclusiones,
-      decision_proximos_pasos,
-      fecha_actualizacion: new Date(),
-      estado: 'Finalizado'
-    });
-    
-    console.log("Resultados actualizados para el experimento: ", idExperimento);
-    res.status(200).json({ status: 'ok', message: 'Resultados actualizados correctamente' });
-
-  } catch (error) {
-    console.error("Error al actualizar resultados: ", error);
-    res.status(500).json({ error: 'Error interno del servidor al actualizar resultados.' });
-  }
-});
-
-// Exporta la app para que Vercel la pueda usar
-export default app;
-
-
-// --- ENDPOINT PARA GUARDAR CADA TURNO DE LA CONVERSACIÓN ---
+// --- 4. ENDPOINT PARA GUARDAR CADA TURNO DE LA CONVERSACIÓN ---
 app.post('/api/guardarTurno', async (req, res) => {
   try {
     const { id_experimento_asociado, pregunta_usuario, respuesta_gpt } = req.body;
 
-    if (!pregunta_usuario || !respuesta_gpt) {
-      return res.status(400).json({ error: 'Falta la pregunta o la respuesta.' });
+    if (!pregunta_usuario && !respuesta_gpt) {
+      return res.status(400).json({ error: 'La pregunta o la respuesta no pueden estar vacías.' });
     }
 
     const nuevoTurno = {
       id_experimento_asociado: id_experimento_asociado || 'sin-asignar',
-      pregunta_usuario,
-      respuesta_gpt,
+      pregunta_usuario: pregunta_usuario || '',
+      respuesta_gpt: respuesta_gpt || '',
       fecha: new Date()
     };
     
-    // Guardamos en una nueva colección llamada "conversaciones"
     const docRef = await db.collection('conversaciones').add(nuevoTurno);
     console.log("Turno de conversación guardado con ID: ", docRef.id);
     res.status(200).json({ status: 'ok', message: 'Turno guardado.' });
 
   } catch (error) {
     console.error("Error al guardar turno: ", error);
-    res.status(500).json({ error: 'Error interno del servidor.' });
+    res.status(500).json({ error: 'Error interno del servidor al guardar turno.' });
   }
 });
 
-
-
-// --- ENDPOINT PARA GUARDAR UN HISTORIAL COMPLETO DE CONVERSACIÓN (ESTRUCTURADO) ---
+// --- 5. ENDPOINT PARA GUARDAR UN HISTORIAL COMPLETO DE CONVERSACIÓN ---
 app.post('/api/guardarHistorial', async (req, res) => {
   try {
-    // Recibimos el nuevo campo "historialEstructurado" que es un array
     const { titulo, historialEstructurado } = req.body;
 
     if (!titulo || !historialEstructurado) {
@@ -129,7 +138,6 @@ app.post('/api/guardarHistorial', async (req, res) => {
 
     const nuevoHistorial = {
       titulo,
-      // Guardamos el array directamente en Firestore
       conversacion: historialEstructurado,
       fechaGuardado: new Date()
     };
@@ -143,3 +151,7 @@ app.post('/api/guardarHistorial', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor al guardar el historial.' });
   }
 });
+
+
+// Exporta la app para que Vercel la pueda usar
+export default app;

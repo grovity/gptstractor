@@ -101,3 +101,31 @@ app.post('/api/guardarResultado', async (req, res) => {
 
 // Exporta la app para que Vercel la pueda usar
 export default app;
+
+
+// --- ENDPOINT PARA GUARDAR CADA TURNO DE LA CONVERSACIÓN ---
+app.post('/api/guardarTurno', async (req, res) => {
+  try {
+    const { id_experimento_asociado, pregunta_usuario, respuesta_gpt } = req.body;
+
+    if (!pregunta_usuario || !respuesta_gpt) {
+      return res.status(400).json({ error: 'Falta la pregunta o la respuesta.' });
+    }
+
+    const nuevoTurno = {
+      id_experimento_asociado: id_experimento_asociado || 'sin-asignar',
+      pregunta_usuario,
+      respuesta_gpt,
+      fecha: new Date()
+    };
+    
+    // Guardamos en una nueva colección llamada "conversaciones"
+    const docRef = await db.collection('conversaciones').add(nuevoTurno);
+    console.log("Turno de conversación guardado con ID: ", docRef.id);
+    res.status(200).json({ status: 'ok', message: 'Turno guardado.' });
+
+  } catch (error) {
+    console.error("Error al guardar turno: ", error);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});

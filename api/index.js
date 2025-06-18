@@ -47,17 +47,22 @@ app.post('/api/buscarExperimentos', async (req, res) => {
 app.post('/api/guardarExperimento', async (req, res) => {
   try {
     const {
-      id_experimento, fecha_inicio, responsable, nombre_experimento,
+      empresa, id_experimento, fecha_inicio, responsable, nombre_experimento,
       contexto_observaciones, hipotesis, metrica_principal,
       metricas_secundarias, acciones_tareas, recursos_necesarios, duracion_estimada,
     } = req.body;
 
-    if (!nombre_experimento || !hipotesis || !metrica_principal) {
-      return res.status(400).json({ error: 'Faltan campos clave del experimento.' });
+    if (!empresa || !nombre_experimento || !hipotesis) {
+      return res.status(400).json({ error: 'Faltan campos clave como empresa, nombre o hipótesis.' });
     }
 
+    // LÓGICA DE RESPALDO: Si el GPT no envía un id_experimento, generamos uno.
+    const idExperimentoFinal = id_experimento || `MEXP-${Date.now()}`;
+
     const nuevoExperimento = {
-      id_experimento, fecha_inicio, responsable, nombre_experimento,
+      empresa,
+      id_experimento: idExperimentoFinal, // Usamos el ID final
+      fecha_inicio, responsable, nombre_experimento,
       contexto_observaciones, hipotesis, metrica_principal,
       metricas_secundarias, acciones_tareas, recursos_necesarios, duracion_estimada,
       fecha_creacion: new Date(),
@@ -70,7 +75,11 @@ app.post('/api/guardarExperimento', async (req, res) => {
 
   } catch (error) {
     console.error("Error al guardar experimento: ", error);
-    res.status(500).json({ error: 'Error interno del servidor al guardar el experimento.' });
+    // Añadimos más detalle al error para facilitar la depuración
+    res.status(500).json({ 
+        error: 'Error interno del servidor al guardar el experimento.',
+        detalle: error.message 
+    });
   }
 });
 

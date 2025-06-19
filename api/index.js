@@ -28,10 +28,20 @@ app.post('/api/buscarExperimentos', async (req, res) => {
     snapshot.forEach(doc => {
       const data = doc.data();
       listaExperimentos.push({
-        id: doc.id,
+        empresa: data.empresa,
+        id_experimento: data.id_experimento,
+        fecha_inicio: data.fecha_inicio , // Fecha de hoy si no se especifica
+        responsable: data.responsable, // Valor por defecto
         nombre_experimento: data.nombre_experimento,
+        contexto_observaciones: data.contexto_observaciones , // Valor por defecto
         hipotesis: data.hipotesis,
-        aprendizajes_conclusiones: data.aprendizajes_conclusiones || 'N/A'
+        metrica_principal: data.metrica_principal,
+        metricas_secundarias: data.metricas_secundarias , // Valor por defecto
+        acciones_tareas: data.acciones_tareas , // Valor por defecto
+        recursos_necesarios: data.recursos_necesarios , // Valor por defecto
+        duracion_estimada: data.duracion_estimada , // Valor por defecto
+        fecha_creacion: new Date(),
+        estado: 'Definido'
       });
     });
 
@@ -43,43 +53,43 @@ app.post('/api/buscarExperimentos', async (req, res) => {
   }
 });
 
-app.post('/api/guardarExperimento', async (req, res) => {
+// --- ENDPOINT PARA BUSCAR EXPERIMENTOS POR NOMBRE DE EMPRESA (AJUSTADO Y MEJORADO) ---
+app.post('/api/buscarExperimentos', async (req, res) => {
   try {
-    const data = req.body;
+    const { nombreEmpresa } = req.body;
 
-    // Validación de los campos más críticos
-    if (!data.empresa || !data.nombre_experimento || !data.hipotesis) {
-      return res.status(400).json({ error: 'Faltan campos clave como empresa, nombre o hipótesis.' });
+    // 1. Validación mejorada para la entrada.
+    if (!nombreEmpresa || nombreEmpresa.trim() === '') {
+      return res.status(400).json({ error: 'El nombre de la empresa es requerido.' });
+    }
+    
+    // 2. Normalizamos el término de búsqueda a minúsculas.
+    const busquedaNormalizada = nombreEmpresa.toLowerCase();
+    
+    const experimentosRef = db.collection('experimentos');
+
+    // 3. LA CONSULTA AJUSTADA: Busca por prefijo en el campo normalizado.
+    const snapshot = await experimentosRef
+      .where('empresa_lowercase', '>=', busquedaNormalizada)
+      .where('empresa_lowercase', '<', busquedaNormalizada + '\uf8ff')
+      .get();
+
+    // Si no se encuentran documentos, devolvemos un array vacío.
+    if (snapshot.empty) {
+      return res.status(200).json({ experimentos: [] });
     }
 
-    // LÓGICA DE RESPALDO MEJORADA: Asignamos valores por defecto a CUALQUIER campo que pueda faltar.
-    const nuevoExperimento = {
-      empresa: data.empresa,
-      id_experimento: data.id_experimento || `MEXP-${Date.now()}`,
-      fecha_inicio: data.fecha_inicio || new Date().toISOString().split('T')[0], // Fecha de hoy si no se especifica
-      responsable: data.responsable || 'Equipo a cargo', // Valor por defecto
-      nombre_experimento: data.nombre_experimento,
-      contexto_observaciones: data.contexto_observaciones || 'No especificado.', // Valor por defecto
-      hipotesis: data.hipotesis,
-      metrica_principal: data.metrica_principal,
-      metricas_secundarias: data.metricas_secundarias || 'No especificadas.', // Valor por defecto
-      acciones_tareas: data.acciones_tareas || 'No especificadas.', // Valor por defecto
-      recursos_necesarios: data.recursos_necesarios || 'No especificados.', // Valor por defecto
-      duracion_estimada: data.duracion_estimada || 'No especificada.', // Valor por defecto
-      fecha_creacion: new Date(),
-      estado: 'Definido'
-    };
-
-    const docRef = await db.collection('experimentos').add(nuevoExperimento);
-    console.log("Experimento guardado con ID: ", docRef.id);
-    res.status(200).json({ status: 'ok', message: 'Experimento guardado exitosamente', id: docRef.id });
+    // 4. LA RESPUESTA CORREGIDA: Mapeamos los resultados sin alterar los datos originales.
+    const listaExperimentos = snapshot.docs.map(doc => ({
+      id: doc.id,         // Incluimos el ID del documento de Firestore.
+      ...doc.data()     // Incluimos todos los campos del documento tal como están.
+    }));
+    
+    res.status(200).json({ experimentos: listaExperimentos });
 
   } catch (error) {
-    console.error("Error al guardar experimento: ", error);
-    res.status(500).json({ 
-        error: 'Error interno del servidor al guardar el experimento.',
-        detalle: error.message 
-    });
+    console.error("Error al buscar experimentos: ", error);
+    res.status(500).json({ error: 'Error interno del servidor al buscar.' });
   }
 });
 

@@ -8,8 +8,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// --- 1. ENDPOINT PARA GUARDAR UN NUEVO EXPERIMENTO (CORREGIDO) ---
 app.post('/api/guardarExperimento', async (req, res) => {
-
   try {
     const data = req.body;
 
@@ -18,20 +18,21 @@ app.post('/api/guardarExperimento', async (req, res) => {
       return res.status(400).json({ error: 'Faltan campos clave como empresa, nombre o hipótesis.' });
     }
 
-    // LÓGICA DE RESPALDO MEJORADA: Asignamos valores por defecto a CUALQUIER campo que pueda faltar.
     const nuevoExperimento = {
       empresa: data.empresa,
+      // CORRECCIÓN LÓGICA: Añadimos el campo en minúsculas para que la búsqueda funcione.
+      empresa_lowercase: data.empresa.toLowerCase(),
       id_experimento: data.id_experimento || `MEXP-${Date.now()}`,
-      fecha_inicio: data.fecha_inicio || new Date().toISOString().split('T')[0], // Fecha de hoy si no se especifica
-      responsable: data.responsable || 'Equipo a cargo', // Valor por defecto
+      fecha_inicio: data.fecha_inicio || new Date().toISOString().split('T')[0],
+      responsable: data.responsable || 'Equipo a cargo',
       nombre_experimento: data.nombre_experimento,
-      contexto_observaciones: data.contexto_observaciones || 'No especificado.', // Valor por defecto
+      contexto_observaciones: data.contexto_observaciones || 'No especificado.',
       hipotesis: data.hipotesis,
       metrica_principal: data.metrica_principal,
-      metricas_secundarias: data.metricas_secundarias || 'No especificadas.', // Valor por defecto
-      acciones_tareas: data.acciones_tareas || 'No especificadas.', // Valor por defecto
-      recursos_necesarios: data.recursos_necesarios || 'No especificados.', // Valor por defecto
-      duracion_estimada: data.duracion_estimada || 'No especificada.', // Valor por defecto
+      metricas_secundarias: data.metricas_secundarias || 'No especificadas.',
+      acciones_tareas: data.acciones_tareas || 'No especificadas.',
+      recursos_necesarios: data.recursos_necesarios || 'No especificados.',
+      duracion_estimada: data.duracion_estimada || 'No especificada.',
       fecha_creacion: new Date(),
       estado: 'Definido'
     };
@@ -40,49 +41,42 @@ app.post('/api/guardarExperimento', async (req, res) => {
     console.log("Experimento guardado con ID: ", docRef.id);
     res.status(200).json({ status: 'ok', message: 'Experimento guardado exitosamente', id: docRef.id });
 
-
-
-
-
   } catch (error) {
     console.error("Error al guardar experimento: ", error);
-    res.status(500).json({ Add commentMore actions
-        error: 'Error interno del servidor al guardar el experimento.',
-        detalle: error.message 
+    // CORRECCIÓN DE SINTAXIS: Se eliminó el texto extra que causaba un error.
+    res.status(500).json({
+      error: 'Error interno del servidor al guardar el experimento.',
+      detalle: error.message 
     });
   }
 });
 
-// --- ENDPOINT PARA BUSCAR EXPERIMENTOS POR NOMBRE DE EMPRESA (AJUSTADO Y MEJORADO) ---
+// --- 2. ENDPOINT PARA BUSCAR EXPERIMENTOS POR NOMBRE DE EMPRESA ---
 app.post('/api/buscarExperimentos', async (req, res) => {
   try {
     const { nombreEmpresa } = req.body;
 
-    // 1. Validación mejorada para la entrada.
     if (!nombreEmpresa || nombreEmpresa.trim() === '') {
       return res.status(400).json({ error: 'El nombre de la empresa es requerido.' });
     }
     
-    // 2. Normalizamos el término de búsqueda a minúsculas.
     const busquedaNormalizada = nombreEmpresa.toLowerCase();
     
     const experimentosRef = db.collection('experimentos');
 
-    // 3. LA CONSULTA AJUSTADA: Busca por prefijo en el campo normalizado.
+    // Esta consulta ahora funcionará porque el campo 'empresa_lowercase' ya existe.
     const snapshot = await experimentosRef
       .where('empresa_lowercase', '>=', busquedaNormalizada)
       .where('empresa_lowercase', '<', busquedaNormalizada + '\uf8ff')
       .get();
 
-    // Si no se encuentran documentos, devolvemos un array vacío.
     if (snapshot.empty) {
       return res.status(200).json({ experimentos: [] });
     }
 
-    // 4. LA RESPUESTA CORREGIDA: Mapeamos los resultados sin alterar los datos originales.
     const listaExperimentos = snapshot.docs.map(doc => ({
-      id: doc.id,         // Incluimos el ID del documento de Firestore.
-      ...doc.data()     // Incluimos todos los campos del documento tal como están.
+      id: doc.id,
+      ...doc.data()
     }));
     
     res.status(200).json({ experimentos: listaExperimentos });
@@ -170,7 +164,6 @@ app.post('/api/guardarHistorial', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor al guardar el historial.' });
   }
 });
-
 
 // Exporta la app para que Vercel la pueda usar
 export default app;

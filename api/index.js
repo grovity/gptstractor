@@ -8,48 +8,48 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- 1. ENDPOINT PARA BUSCAR EXPERIMENTOS POR NOMBRE DE EMPRESA ---
-app.post('/api/buscarExperimentos', async (req, res) => {
+app.post('/api/guardarExperimento', async (req, res) => {
+
   try {
-    const { nombreEmpresa } = req.body;
+    const data = req.body;
 
-    if (!nombreEmpresa) {
-      return res.status(400).json({ error: 'El nombre de la empresa es requerido.' });
-    }
-    
-    const experimentosRef = db.collection('experimentos');
-    const snapshot = await experimentosRef.where('empresa', '==', nombreEmpresa).get();
-
-    if (snapshot.empty) {
-      return res.status(200).json({ experimentos: [] });
+    // Validación de los campos más críticos
+    if (!data.empresa || !data.nombre_experimento || !data.hipotesis) {
+      return res.status(400).json({ error: 'Faltan campos clave como empresa, nombre o hipótesis.' });
     }
 
-    const listaExperimentos = [];
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      listaExperimentos.push({
-        empresa: data.empresa,
-        id_experimento: data.id_experimento,
-        fecha_inicio: data.fecha_inicio , // Fecha de hoy si no se especifica
-        responsable: data.responsable, // Valor por defecto
-        nombre_experimento: data.nombre_experimento,
-        contexto_observaciones: data.contexto_observaciones , // Valor por defecto
-        hipotesis: data.hipotesis,
-        metrica_principal: data.metrica_principal,
-        metricas_secundarias: data.metricas_secundarias , // Valor por defecto
-        acciones_tareas: data.acciones_tareas , // Valor por defecto
-        recursos_necesarios: data.recursos_necesarios , // Valor por defecto
-        duracion_estimada: data.duracion_estimada , // Valor por defecto
-        fecha_creacion: new Date(),
-        estado: 'Definido'
-      });
-    });
+    // LÓGICA DE RESPALDO MEJORADA: Asignamos valores por defecto a CUALQUIER campo que pueda faltar.
+    const nuevoExperimento = {
+      empresa: data.empresa,
+      id_experimento: data.id_experimento || `MEXP-${Date.now()}`,
+      fecha_inicio: data.fecha_inicio || new Date().toISOString().split('T')[0], // Fecha de hoy si no se especifica
+      responsable: data.responsable || 'Equipo a cargo', // Valor por defecto
+      nombre_experimento: data.nombre_experimento,
+      contexto_observaciones: data.contexto_observaciones || 'No especificado.', // Valor por defecto
+      hipotesis: data.hipotesis,
+      metrica_principal: data.metrica_principal,
+      metricas_secundarias: data.metricas_secundarias || 'No especificadas.', // Valor por defecto
+      acciones_tareas: data.acciones_tareas || 'No especificadas.', // Valor por defecto
+      recursos_necesarios: data.recursos_necesarios || 'No especificados.', // Valor por defecto
+      duracion_estimada: data.duracion_estimada || 'No especificada.', // Valor por defecto
+      fecha_creacion: new Date(),
+      estado: 'Definido'
+    };
 
-    res.status(200).json({ experimentos: listaExperimentos });
+    const docRef = await db.collection('experimentos').add(nuevoExperimento);
+    console.log("Experimento guardado con ID: ", docRef.id);
+    res.status(200).json({ status: 'ok', message: 'Experimento guardado exitosamente', id: docRef.id });
+
+
+
+
 
   } catch (error) {
-    console.error("Error al buscar experimentos: ", error);
-    res.status(500).json({ error: 'Error interno del servidor al buscar.' });
+    console.error("Error al guardar experimento: ", error);
+    res.status(500).json({ Add commentMore actions
+        error: 'Error interno del servidor al guardar el experimento.',
+        detalle: error.message 
+    });
   }
 });
 

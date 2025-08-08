@@ -14,15 +14,22 @@ app.post('/api/guardarExperimento', async (req, res) => {
     const data = req.body;
 
     // Validación de los campos más críticos
-    if (!data.empresa || !data.nombre_experimento || !data.hipotesis) {
-      return res.status(400).json({ error: 'Faltan campos clave como empresa, nombre o hipótesis.' });
+    if (!data.empresa || !data.nombre_experimento || !data.id_experimento) {
+      return res.status(400).json({ error: 'Faltan campos clave como id_experimento, empresa o nombre.' });
     }
 
+    // El ID del documento se define a partir de los datos de entrada
+    const documentId = data.id_experimento;
+    const docRef = db.collection('experimentos').doc(documentId);
+
+    // Prepara el objeto que se va a guardar
     const nuevoExperimento = {
+      // ✅ PASO CLAVE: Añadimos el ID como un campo más
+      id_propio: documentId, 
+      
+      // El resto de los datos...
       empresa: data.empresa,
-      // CORRECCIÓN LÓGICA: Añadimos el campo en minúsculas para que la búsqueda funcione.
       empresa_lowercase: data.empresa.toLowerCase(),
-      id_experimento: data.id_experimento || `MEXP-${Date.now()}`,
       fecha_inicio: data.fecha_inicio || new Date().toISOString().split('T')[0],
       responsable: data.responsable || 'Equipo a cargo',
       nombre_experimento: data.nombre_experimento,
@@ -37,13 +44,14 @@ app.post('/api/guardarExperimento', async (req, res) => {
       estado: 'Definido'
     };
 
-    const docRef = await db.collection('experimentos').add(nuevoExperimento);
-    console.log("Experimento guardado con ID: ", docRef.id);
-    res.status(200).json({ status: 'ok', message: 'Experimento guardado exitosamente', id: docRef.id });
+    // Usa .set() para crear el documento con el ID específico y los datos preparados
+    await docRef.set(nuevoExperimento);
+
+    console.log("Experimento guardado con ID: ", documentId);
+    res.status(200).json({ status: 'ok', message: 'Experimento guardado exitosamente', id: documentId });
 
   } catch (error) {
     console.error("Error al guardar experimento: ", error);
-    // CORRECCIÓN DE SINTAXIS: Se eliminó el texto extra que causaba un error.
     res.status(500).json({
       error: 'Error interno del servidor al guardar el experimento.',
       detalle: error.message 
